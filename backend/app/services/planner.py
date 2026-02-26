@@ -83,17 +83,17 @@ class TravelPlanner:
             return self._deterministic_itinerary(location, when, interests, weather_raw, stops, events, route_order)
 
         @tool
-        def weather_tool(_: str) -> str:
+        def weather_tool(query: str) -> str:
             """Return the weather summary for the target date."""
             return f"{weather_raw['summary']} (min {weather_raw['min_temp_c']}°C, max {weather_raw['max_temp_c']}°C)"
 
         @tool
-        def places_tool(_: str) -> str:
+        def places_tool(query: str) -> str:
             """Return major places to visit."""
             return ", ".join(route_order) or "No places found"
 
         @tool
-        def events_tool(_: str) -> str:
+        def events_tool(query: str) -> str:
             """Return paid events for the day."""
             if not events:
                 return "No paid events found"

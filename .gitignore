@@ -35,4 +35,6 @@ pytest_cache/
 
 # Others
 frontend/.env
+frontend/.vite
 backend/.env
+node_modules
