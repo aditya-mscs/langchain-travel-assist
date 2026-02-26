@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -21,8 +21,8 @@ class Stop(BaseModel):
 
 class WeatherInfo(BaseModel):
     summary: str
-    max_temp_c: float | None = None
-    min_temp_c: float | None = None
+    max_temp_c: Optional[float] = None
+    min_temp_c: Optional[float] = None
 
 
 class EventInfo(BaseModel):
