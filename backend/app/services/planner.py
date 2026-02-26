@@ -6,6 +6,7 @@ from datetime import date
 
 from langchain.agents import AgentType, initialize_agent
 from langchain.tools import tool
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 
 from app.models import EventInfo, PlanResponse, Stop, WeatherInfo
@@ -17,22 +18,32 @@ class TravelPlanner:
         lat, lon = await geocode_location(location)
         weather_raw = await weather_for_day(lat, lon, when)
 
+        normalized_interests = [value.strip().lower() for value in interests if value and value.strip()]
+        seed_interests = normalized_interests[:5] or ["popular", "food", "art"]
+
         places_raw = []
-        for interest in interests[:3] or [""]:
-            places_raw.extend(await nearby_places(lat, lon, interest, limit=3))
+        for interest in seed_interests:
+            places_raw.extend(await nearby_places(lat, lon, interest, limit=4, location_hint=location))
 
         deduped = {place["name"]: place for place in places_raw}
-        stops = [Stop(**value) for value in list(deduped.values())[:6]]
+        ranked_places = sorted(
+            deduped.values(),
+            key=lambda place: self._interest_score(place, seed_interests),
+            reverse=True,
+        )
+        stops = [Stop(**value) for value in ranked_places[:6]]
 
         events = [EventInfo(**event) for event in await paid_events(location, when)]
         route_order, transit_minutes = self._nearest_neighbor_route(lat, lon, stops)
-        total_minutes = transit_minutes + sum(stop.estimated_minutes for stop in stops)
+        total_minutes = transit_minutes + sum(stop.estimated_minutes or 0 for stop in stops)
 
         itinerary = self._build_itinerary(location, when, interests, weather_raw, stops, events, route_order)
 
         return PlanResponse(
             location=location,
             date=when,
+            origin_latitude=lat,
+            origin_longitude=lon,
             weather=WeatherInfo(**weather_raw),
             places=stops,
             events=events,
@@ -68,6 +79,19 @@ class TravelPlanner:
         a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
         return 2 * radius * math.asin(math.sqrt(a))
 
+    @staticmethod
+    def _interest_score(place: dict, interests: list[str]) -> int:
+        text = f"{place.get('name', '')} {place.get('description', '')} {place.get('category', '')}".lower()
+        score = 0
+        for interest in interests:
+            token = interest.strip().lower()
+            if token and token in text:
+                score += 2
+            for part in token.split():
+                if len(part) > 2 and part in text:
+                    score += 1
+        return score
+
     def _build_itinerary(
         self,
         location: str,
@@ -78,9 +102,30 @@ class TravelPlanner:
         events: list[EventInfo],
         route_order: list[str],
     ) -> str:
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if not openai_key:
+        provider = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+        llm = None
+
+        if provider == "none":
             return self._deterministic_itinerary(location, when, interests, weather_raw, stops, events, route_order)
+
+        if provider == "gemini":
+            google_api_key = os.getenv("GOOGLE_API_KEY")
+            if not google_api_key:
+                return self._deterministic_itinerary(location, when, interests, weather_raw, stops, events, route_order)
+            llm = ChatGoogleGenerativeAI(
+                model=os.getenv("GEMINI_MODEL", "gemini-1.5-flash"),
+                temperature=0.3,
+                google_api_key=google_api_key,
+            )
+        else:
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if not openai_key:
+                return self._deterministic_itinerary(location, when, interests, weather_raw, stops, events, route_order)
+            llm = ChatOpenAI(
+                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                temperature=0.3,
+                api_key=openai_key,
+            )
 
         @tool
         def weather_tool(query: str) -> str:
@@ -99,18 +144,20 @@ class TravelPlanner:
                 return "No paid events found"
             return "; ".join(f"{e.name} at {e.venue} ({e.price_note})" for e in events)
 
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
-        agent = initialize_agent(
-            tools=[weather_tool, places_tool, events_tool],
-            llm=llm,
-            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-            verbose=False,
-        )
-        prompt = (
-            f"Create a one-day travel itinerary for {location} on {when.isoformat()} for interests: {', '.join(interests) or 'general'}. "
-            "Include weather tips, order of places, and best event option."
-        )
-        return str(agent.run(prompt))
+        try:
+            agent = initialize_agent(
+                tools=[weather_tool, places_tool, events_tool],
+                llm=llm,
+                agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+                verbose=False,
+            )
+            prompt = (
+                f"Create a one-day travel itinerary for {location} on {when.isoformat()} for interests: {', '.join(interests) or 'general'}. "
+                "Include weather tips, order of places, and best event option."
+            )
+            return str(agent.run(prompt))
+        except Exception:
+            return self._deterministic_itinerary(location, when, interests, weather_raw, stops, events, route_order)
 
     @staticmethod
     def _deterministic_itinerary(

@@ -16,13 +16,16 @@ class Stop(BaseModel):
     description: str
     latitude: float
     longitude: float
-    estimated_minutes: int
+    address: Optional[str] = None
+    expense_estimate: Optional[str] = None
+    estimated_minutes: Optional[int] = None
 
 
 class WeatherInfo(BaseModel):
     summary: str
     max_temp_c: Optional[float] = None
     min_temp_c: Optional[float] = None
+    max_wind_kph: Optional[float] = None
 
 
 class EventInfo(BaseModel):
@@ -36,6 +39,8 @@ class EventInfo(BaseModel):
 class PlanResponse(BaseModel):
     location: str
     date: date
+    origin_latitude: Optional[float] = None
+    origin_longitude: Optional[float] = None
     weather: WeatherInfo
     places: List[Stop]
     events: List[EventInfo]

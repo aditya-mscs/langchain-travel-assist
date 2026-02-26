@@ -1,10 +1,12 @@
-# LangChain Travel Assist
+# Travel Assist
 
 A full-stack travel-planning app with:
+
 - **Backend:** FastAPI + LangChain agent (Python)
 - **Frontend:** React + TypeScript (Vite)
 
 The app builds a one-day plan for a location/date and returns:
+
 - Weather forecast
 - Famous nearby places based on interests
 - Paid events (via Ticketmaster when API key is provided)
@@ -27,7 +29,13 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 Environment variables:
-- `OPENAI_API_KEY` (optional; enables LLM-generated itinerary text)
+
+- `LLM_PROVIDER` (`openai`, `gemini`, or `none`; default `openai`)
+- `OPENAI_API_KEY` (used when `LLM_PROVIDER=openai`)
+- `OPENAI_MODEL` (optional; default `gpt-4o-mini`)
+- `GOOGLE_API_KEY` (used when `LLM_PROVIDER=gemini`)
+- `GEMINI_MODEL` (optional; default `gemini-1.5-flash`)
+- `GOOGLE_PLACES_API_KEY` (optional; enables Google Places-based nearby recommendations)
 - `TICKETMASTER_API_KEY` (optional; enables paid events search)
 
 ## Frontend setup
