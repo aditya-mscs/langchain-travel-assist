@@ -1,3 +1,9 @@
+
+<img width="443" height="457" alt="Screenshot 2026-03-07 at 7 09 09 PM" src="https://github.com/user-attachments/assets/29cb1820-ac25-450d-aa5e-d484bffd27b6" />
+<img width="665" height="631" alt="Screenshot 2026-03-07 at 7 09 38 PM" src="https://github.com/user-attachments/assets/95aebc98-b82f-41d8-98b5-a086bf365794" />
+<img width="643" height="661" alt="Screenshot 2026-03-07 at 7 09 48 PM" src="https://github.com/user-attachments/assets/9001355e-7f8f-43d5-9351-9fa6bc8cf40d" />
+
+
 # Travel Assist
 
 A full-stack travel-planning app with:
